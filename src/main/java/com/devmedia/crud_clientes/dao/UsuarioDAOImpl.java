@@ -1,65 +1,69 @@
 package com.devmedia.crud_clientes.dao;
 
+import com.devmedia.crud_clientes.model.TipoSexo;
 import com.devmedia.crud_clientes.model.Usuario;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedList;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Repository
+@Transactional
 public class UsuarioDAOImpl implements UsuarioDAO {
 
-    private static List<Usuario> us;
-
-    public UsuarioDAOImpl() {
-        createUserToList();
-    }
-
-    private List<Usuario> createUserToList() {
-        if (us == null){
-            us = new LinkedList<>();
-            us.add(new Usuario(System.currentTimeMillis()+1L, "Ana", "da Silva"));
-            us.add(new Usuario(System.currentTimeMillis()+2L, "Luiz", "dos Santos"));
-            us.add(new Usuario(System.currentTimeMillis()+3L, "Mariana", "Mello"));
-            us.add(new Usuario(System.currentTimeMillis()+4L, "Caren", "Pereira"));
-            us.add(new Usuario(System.currentTimeMillis()+5L, "Sonia", "Fagundes"));
-            us.add(new Usuario(System.currentTimeMillis()+6L, "Norberto", "de Souza"));
-        }
-
-        return us;
-    }
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public void salvar(Usuario usuario) {
-        usuario.setId(System.currentTimeMillis());
-        us.add(usuario);
+        entityManager.persist(usuario);
     }
 
     @Override
     public void editar(Usuario usuario) {
-        us.stream()
-                .filter(u -> u.getId().equals(usuario.getId()))
-                .forEach( u -> {
-                    u.setNome(usuario.getNome());
-                    u.setSobreNome(usuario.getSobreNome());
-                });
+        entityManager.merge(usuario);
     }
 
     @Override
     public void excluir(Long id) {
-        us.removeIf(u -> u.getId().equals(id));
+        entityManager.remove(entityManager.getReference(Usuario.class, id));
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Usuario getId(Long id) {
-        return us.stream()
-                .filter( u -> u.getId().equals(id))
-                .collect(Collectors.toList()).get(0);
+        String jpql = "from Usuario u where u.id = :id";
+        TypedQuery<Usuario> query = entityManager.createQuery(jpql, Usuario.class);
+        query.setParameter("id", id);
+        return query.getSingleResult();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<Usuario> getAll() {
+        String jpql = "from Usuario u";
+        TypedQuery<Usuario> query = entityManager.createQuery(jpql, Usuario.class);
+        return query.getResultList();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<Usuario> getBySexo(TipoSexo sexo) {
+        String jpql = "from Usuario u where u.sexo = :sexo";
+        TypedQuery<Usuario> query = entityManager.createQuery(jpql, Usuario.class);
+        query.setParameter("sexo", sexo);
+        return query.getResultList();
     }
 
     @Override
-    public List<Usuario> getAll() {
-        return us;
+    public List<Usuario> getByNome(String nome) {
+        String jpql = "from Usuario u where u.nome like :nome or sobreNome like :sobreNome";
+        TypedQuery<Usuario> query = entityManager.createQuery(jpql, Usuario.class);
+        query.setParameter("nome", "%" + nome + "%");
+        query.setParameter("sobreNome", "%" + nome + "%");
+        return query.getResultList();
     }
 }
